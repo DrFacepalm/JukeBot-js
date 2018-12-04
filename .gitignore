@@ -1,0 +1,9 @@
+# Packages
+node_modules/
+
+# Logs
+logs/
+*.log
+
+# Config
+config.json
