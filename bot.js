@@ -16,12 +16,6 @@ client.on('ready', () => {
 });
 
 client.on('message', msg => {
-    if (msg.content === 'ping') {
-        msg.channel.send('pong');
-    }
-});
-
-client.on('message', msg => {
     if (!isCommand(msg)) {
         return undefined;
     }
@@ -68,7 +62,7 @@ async function handleCommand(args, msg) {
 
                 try {
                     var videoInfo = await youtube.searchVideos(searchString, 1)[0];
-                    video = await youtube.getVideoByID(video.id)
+                    video = await youtube.getVideoByID(videoInfo.id)
                 } catch (err) {
                     console.error(err);
                     return msg.channel.send("No results")
@@ -119,6 +113,7 @@ async function handleCommand(args, msg) {
 // Logic to handle gathering information for the video and sending it to the
 // play function
 async function handleVideo(video, msg, voiceChannel) {
+    // serverQueue refers to a song queue within each server. a 'player'
     const serverQueue = queue.get(msg.guild.id);
     console.log(video);
     const song = {
@@ -150,8 +145,9 @@ async function handleVideo(video, msg, voiceChannel) {
                 })
             play(msg.guild, queueConstruct.songs[0]);
         } catch (error) {
-            console.error(`I could not join the voice channel: ${error}`)
+            console.error(`I could not join the voice channel: ${error}`);
             queue.delete(msg.guild.id);
+            return msg.channel.send(`I could not join the voice channel: ${error}`);
         }
     // If guild already has a queue setup
     } else {
