@@ -1,6 +1,6 @@
 // Heavily drafted off Dev-Yukine's Music-bot
 // This work is mainly an attempt of learning
-
+const Util = require('util');
 const config = require('./config.json');
 const Discord = require('discord.js');
 const YouTube = require('simple-youtube-api');
@@ -61,7 +61,8 @@ async function handleCommand(args, msg) {
             } catch (error) {
 
                 try {
-                    var videoInfo = await youtube.searchVideos(searchString, 1)[0];
+                    console.log("did not recognise url, searching for results");
+                    var videoInfo = await youtube.searchVideos(args[1], 1)[0];
                     video = await youtube.getVideoByID(videoInfo.id)
                 } catch (err) {
                     console.error(err);
@@ -115,12 +116,13 @@ async function handleCommand(args, msg) {
 async function handleVideo(video, msg, voiceChannel) {
     // serverQueue refers to a song queue within each server. a 'player'
     const serverQueue = queue.get(msg.guild.id);
-    console.log(video);
+    //console.log(video);
     const song = {
         id: video.id,
         title: video.title,
         url: `https://www.youtube.com/watch?v=${video.id}`
-    }
+    };
+    console.log(song.title)
 
     // if the guild has not already set up a queue, add a queue.
     if(!serverQueue) {
@@ -139,8 +141,8 @@ async function handleVideo(video, msg, voiceChannel) {
         queueConstruct.songs.push(song);
 
         try {
-            queueConstruct.connection = await voiceChannel.join()
-                .on(disconnect, () => {
+            queueConstruct.connection = await voiceChannel.join();
+            queueConstruct.connection.on('disconnect', () => {
                     queue.delete(guild.id);
                 })
             play(msg.guild, queueConstruct.songs[0]);
