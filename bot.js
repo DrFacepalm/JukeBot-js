@@ -23,7 +23,15 @@ client.on('message', msg => {
 
 client.on('guildCreate', guild => {
     const channel = guild.channels.find(c =>
-        c.GuildChannel.name === "general" && c.GuildChannel.type === "text");
+        c.name === "general" && c.type === "text");
+    channel.send(
+        `
+        **Thank you for adding me** :white_check_mark:
+        - My prefix is **./**
+        - You can see a list of commands with **./help**
+        This bot hardly works.
+        `
+    );
 });
 
 // param: msg: a message object from discord.js
@@ -66,7 +74,7 @@ async function handleCommand(args, msg) {
                     video = await youtube.getVideoByID(videoInfo.id)
                 } catch (err) {
                     console.error(err);
-                    return msg.channel.send("No results")
+                    return msg.channel.send("**No results**")
                 }
             }
             return handleVideo(video, msg, voiceChannel)
@@ -76,12 +84,14 @@ async function handleCommand(args, msg) {
         if (!queue.get(msg.guild.id)) return msg.channel.send("Nothing to skip");
         queue.get(msg.guild.id).connection.dispatcher.end("Song skip.");
         return undefined;
+
     } else if (command === 'disconnect') {
         if (!msg.member.voiceChannel) return msg.channel.send("You are not in a voice channel");
         if (!queue.get(msg.guild.id)) return msg.channel.send("I am not connected to a vc");
         queue.get(msg.guild.id).connection.disconnect();
         queue.delete(msg.guild.id);
         return undefined;
+
     } else if (command === 'volume') {
         if (!msg.member.voiceChannel) return msg.channel.send("You are not in a voice channel");
         if (!queue.get(msg.guild.id)) return msg.channel.send("I'm not connected");
@@ -90,16 +100,19 @@ async function handleCommand(args, msg) {
         serverQueue.volume = args[1];
         serverQueue.connection.dispatcher.setVolumeLogarithmic(args[1] / 5);
         return msg.channel.send(`Volume set to ${args[1]}`);
+
     } else if (command === 'np') {
         if (!serverQueue) return msg.channel.send("Nothing is playing");
         return msg.channel.send(`Now Playing: ${queue.get(msg.guild.id).songs[0].title}`);
+
     } else if (command === 'pause') {
         if (!msg.member.voiceChannel) return msg.channel.send('You are not in a voice channel');
-        if (!queue.get(msg.guild.id)) return msg.channel.send("Bot it not connected to anything");
+        if (!queue.get(msg.guild.id)) return msg.channel.send("Bot is not connected to anything");
         if (!queue.get(msg.guild.id).playing) return msg.channel.send("Bot is not playing right now");
 
         queue.get(msg.guild.id).connection.dispatcher.pause();
         queue.get(msg.guild.id).playing = false;
+
     } else if (command === 'resume') {
         if (!msg.member.voiceChannel) return msg.channel.send('You are not in a voice channel');
         if (!queue.get(msg.guild.id)) return msg.channel.send("Nothing to skip");
@@ -107,10 +120,14 @@ async function handleCommand(args, msg) {
 
         queue.get(msg.guild.id).connection.dispatcher.resume();
         queue.get(msg.guild.id).playing = true;
+
     } else if (command === 'ping'){
         msg.channel.send("pong");
+
     } else if (command === 'debug') {
-        console.log(queue);
+        //console.log(msg.guild.channels);
+        msg.guild.channels.find(c =>
+            c.name === "general" && c.type === "text").send("asdf");
     }
 
     return undefined
@@ -127,7 +144,7 @@ async function handleVideo(video, msg, voiceChannel) {
         title: video.title,
         url: `https://www.youtube.com/watch?v=${video.id}`
     };
-    console.log(song.title)
+    console.log(song.title);
 
     // if the guild has not already set up a queue, add a queue.
     if(!serverQueue) {
@@ -151,14 +168,16 @@ async function handleVideo(video, msg, voiceChannel) {
         } catch (error) {
             console.error(`I could not join the voice channel: ${error}`);
             queue.delete(msg.guild.id);
-            return msg.channel.send(`I could not join the voice channel: ${error}`);
+            return msg.channel.send(`:x: I could not join the voice channel: ${error}`);
         }
+
     // If guild already has a queue setup
     } else {
         // add song to queue
         serverQueue.songs.push(song);
         console.log(serverQueue.songs);
-        return msg.channel.send(`${song.title} has been added to queue`);
+        return msg.channel.send(`**${song.title}** has been added to queue`);
+
     }
     return undefined;
 
@@ -166,17 +185,20 @@ async function handleVideo(video, msg, voiceChannel) {
 
 // Stream the song in the voice channel
 function play(guild, song) {
-    console.log("function play is called");
     var serverQueue = queue.get(guild.id);
 
     if (!song) {
-        console.log("out of songs... probably");
+        console.log("Out of songs");
         serverQueue.voiceChannel.leave();
-        console.log("assdff");
-        console.log(queue.delete(guild.id));
+        queue.delete(guild.id);
         return;
     }
-    console.log(serverQueue.songs);
+
+    console.log(`Playing: ${song.title}`);
+    console.log("Queue:")
+    for (song in serverQueue.songs) {
+        console.log(song);
+    }
 
     const dispatcher = serverQueue.connection.playStream(ytdl(song.url))
         .on('end', reason => {
@@ -194,8 +216,7 @@ function play(guild, song) {
             return;
         });
     dispatcher.setVolumeLogarithmic(serverQueue.volume / 5);
-
-    serverQueue.textChannel.send(`Start Playing: ${song.title}`);
+    serverQueue.textChannel.send(`:notes: Start Playing: **${song.title}**`);
 }
 
 client.login(config.token)
