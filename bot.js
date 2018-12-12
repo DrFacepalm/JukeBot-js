@@ -16,22 +16,22 @@ client.on('ready', () => {
 });
 
 client.on('message', msg => {
-    if (!isCommand(msg)) {
-        return undefined;
-    }
-
+    if (!isCommand(msg)) return undefined;
     const args = msg.content.split(" ");
     handleCommand(args, msg);
-})
+});
+
+client.on('guildCreate', guild => {
+    const channel = guild.channels.find(c =>
+        c.GuildChannel.name === "general" && c.GuildChannel.type === "text");
+});
 
 // param: msg: a message object from discord.js
 function isCommand(msg) {
-    if (msg.content.startsWith(config.prefix) && !msg.author.bot) {
-        return true;
-    } else {
-        return false;
+    if (msg.content.startsWith(config.prefix) && !msg.author.bot) return true;
+    return false;
     }
-}
+
 
 // param: args: a list representing the command and params
 // param: msg: the message object
@@ -79,13 +79,14 @@ async function handleCommand(args, msg) {
     } else if (command === 'disconnect') {
         if (!msg.member.voiceChannel) return msg.channel.send("You are not in a voice channel");
         if (!queue.get(msg.guild.id)) return msg.channel.send("I am not connected to a vc");
-        serverQueue.connection.disconnect();
+        queue.get(msg.guild.id).connection.disconnect();
+        queue.delete(msg.guild.id);
         return undefined;
     } else if (command === 'volume') {
         if (!msg.member.voiceChannel) return msg.channel.send("You are not in a voice channel");
         if (!queue.get(msg.guild.id)) return msg.channel.send("I'm not connected");
         if (!queue.get(msg.guild.id).playing) return msg.channel.send("It's paused, cant change volume. ask for this to be changed");
-        if (!args[1]) return msg.channel.send("Current volume is whatever.. fix this");
+        if (!args[1]) return msg.channel.send(`Current volume is ${queue.get(msg.guild.id).volume}`);
         serverQueue.volume = args[1];
         serverQueue.connection.dispatcher.setVolumeLogarithmic(args[1] / 5);
         return msg.channel.send(`Volume set to ${args[1]}`);
@@ -96,16 +97,20 @@ async function handleCommand(args, msg) {
         if (!msg.member.voiceChannel) return msg.channel.send('You are not in a voice channel');
         if (!queue.get(msg.guild.id)) return msg.channel.send("Bot it not connected to anything");
         if (!queue.get(msg.guild.id).playing) return msg.channel.send("Bot is not playing right now");
+
         queue.get(msg.guild.id).connection.dispatcher.pause();
         queue.get(msg.guild.id).playing = false;
     } else if (command === 'resume') {
         if (!msg.member.voiceChannel) return msg.channel.send('You are not in a voice channel');
         if (!queue.get(msg.guild.id)) return msg.channel.send("Nothing to skip");
         if (queue.get(msg.guild.id).playing) return msg.channel.send("Bot already playing");
+
         queue.get(msg.guild.id).connection.dispatcher.resume();
         queue.get(msg.guild.id).playing = true;
     } else if (command === 'ping'){
         msg.channel.send("pong");
+    } else if (command === 'debug') {
+        console.log(queue);
     }
 
     return undefined
@@ -115,7 +120,7 @@ async function handleCommand(args, msg) {
 // play function
 async function handleVideo(video, msg, voiceChannel) {
     // serverQueue refers to a song queue within each server. a 'player'
-    const serverQueue = queue.get(msg.guild.id);
+    var serverQueue = queue.get(msg.guild.id);
     //console.log(video);
     const song = {
         id: video.id,
@@ -142,9 +147,6 @@ async function handleVideo(video, msg, voiceChannel) {
 
         try {
             queueConstruct.connection = await voiceChannel.join();
-            queueConstruct.connection.on('disconnect', () => {
-                    queue.delete(guild.id);
-                })
             play(msg.guild, queueConstruct.songs[0]);
         } catch (error) {
             console.error(`I could not join the voice channel: ${error}`);
@@ -164,12 +166,14 @@ async function handleVideo(video, msg, voiceChannel) {
 
 // Stream the song in the voice channel
 function play(guild, song) {
-    const serverQueue = queue.get(guild.id);
+    console.log("function play is called");
+    var serverQueue = queue.get(guild.id);
 
     if (!song) {
         console.log("out of songs... probably");
         serverQueue.voiceChannel.leave();
-        queue.delete(guild.id);
+        console.log("assdff");
+        console.log(queue.delete(guild.id));
         return;
     }
     console.log(serverQueue.songs);
@@ -183,8 +187,12 @@ function play(guild, song) {
             }
             serverQueue.songs.shift();
             play(guild, serverQueue.songs[0]);
+            return;
         })
-        .on('error', error => console.error(error));
+        .on('error', error => {
+            console.error(error);
+            return;
+        });
     dispatcher.setVolumeLogarithmic(serverQueue.volume / 5);
 
     serverQueue.textChannel.send(`Start Playing: ${song.title}`);
