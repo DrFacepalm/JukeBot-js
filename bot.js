@@ -7,9 +7,9 @@ const YouTube = require('simple-youtube-api');
 const ytdl = require('ytdl-core');
 
 const client = new Discord.Client();
-const youtube = new YouTube(config.youtubeAPI)
-const queue = new Map()
-
+const youtube = new YouTube(config.youtubeAPI);
+const queue = new Map();
+const guildList = new Map();
 
 client.on('ready', () => {
     console.log(`Logged in as ${client.user.tag}`);
@@ -22,8 +22,9 @@ client.on('message', msg => {
 });
 
 client.on('guildCreate', guild => {
-    const channel = guild.channels.find(c =>
-        c.name === "general" && c.type === "text");
+    // const channel = guild.channels.find(c =>
+    //     c.name === "general" && c.type === "text");
+    const channel = guild.systemChannel;
     channel.send(
         `
         **Thank you for adding me** :white_check_mark:
@@ -32,6 +33,7 @@ client.on('guildCreate', guild => {
         This bot hardly works.
         `
     );
+    handleGuild(guild);
 });
 
 // param: msg: a message object from discord.js
@@ -97,12 +99,12 @@ async function handleCommand(args, msg) {
         if (!queue.get(msg.guild.id)) return msg.channel.send("I'm not connected");
         if (!queue.get(msg.guild.id).playing) return msg.channel.send("It's paused, cant change volume. ask for this to be changed");
         if (!args[1]) return msg.channel.send(`Current volume is ${queue.get(msg.guild.id).volume}`);
-        serverQueue.volume = args[1];
-        serverQueue.connection.dispatcher.setVolumeLogarithmic(args[1] / 5);
+        queue.get(msg.guild.id).volume = args[1];
+        queue.get(msg.guild.id).connection.dispatcher.setVolumeLogarithmic(args[1] / 5);
         return msg.channel.send(`Volume set to ${args[1]}`);
 
     } else if (command === 'np') {
-        if (!serverQueue) return msg.channel.send("Nothing is playing");
+        if (!queue.get(msg.guild.id)) return msg.channel.send("Nothing is playing");
         return msg.channel.send(`Now Playing: ${queue.get(msg.guild.id).songs[0].title}`);
 
     } else if (command === 'pause') {
@@ -195,10 +197,10 @@ function play(guild, song) {
     }
 
     console.log(`Playing: ${song.title}`);
-    console.log("Queue:")
-    for (song in serverQueue.songs) {
-        console.log(song);
-    }
+    // console.log("Queue:")
+    // for (song in serverQueue.songs) {
+    //     console.log(song);
+    // }
 
     const dispatcher = serverQueue.connection.playStream(ytdl(song.url))
         .on('end', reason => {
@@ -217,6 +219,23 @@ function play(guild, song) {
         });
     dispatcher.setVolumeLogarithmic(serverQueue.volume / 5);
     serverQueue.textChannel.send(`:notes: Start Playing: **${song.title}**`);
+}
+
+function handleGuild(guild) {
+    var newGuild = guildList.get(guild.id);
+    if (!newGuild) {
+
+        var defChannel = guild.channels.find(c =>
+            c.name === "general" && c.type === "text");
+
+        const guildInfo = {
+            defaultChannel: defChannel,
+            name: guild.name,
+            prefix: "./"
+        }
+
+        guildList.set(guild.id, guildInfo);
+    }
 }
 
 client.login(config.token)
